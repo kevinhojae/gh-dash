@@ -30,6 +30,7 @@ import (
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/prsidebar"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/prssection"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/reposection"
+	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/repositoriessection"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/section"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/sidebar"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/tabs"
@@ -50,6 +51,7 @@ type Model struct {
 	repo          section.Section
 	prs           []section.Section
 	issues        []section.Section
+	repositories  []section.Section
 	tabs          tabs.Model
 	ctx           *context.ProgramContext
 	taskSpinner   spinner.Model
@@ -142,6 +144,7 @@ func (m *Model) initScreen() tea.Msg {
 		cfg.Keybindings.Issues,
 		cfg.Keybindings.Prs,
 		cfg.Keybindings.Branches,
+		cfg.Keybindings.Repositories,
 	)
 	if err != nil {
 		showError(err)
@@ -523,6 +526,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.setCurrentViewSections(currSections)
 				m.onViewedRowChanged()
 			}
+
+		case m.ctx.View == config.RepositoriesView:
+			switch {
+			case key.Matches(msg, m.keys.OpenGithub):
+				cmds = append(cmds, m.openBrowser())
+
+			case key.Matches(msg, keys.RepositoryKeys.ViewPRs):
+				m.ctx.View = m.switchSelectedView()
+				m.syncMainContentWidth()
+				m.setCurrSectionId(m.getCurrentViewDefaultSection())
+
+				currSections := m.getCurrentViewSections()
+				if len(currSections) == 0 {
+					newSections, fetchSectionsCmds := m.fetchAllViewSections()
+					currSections = newSections
+					cmds = append(cmds, m.tabs.SetAllLoading()...)
+					cmd = fetchSectionsCmds
+				}
+				m.setCurrentViewSections(currSections)
+				m.onViewedRowChanged()
+			}
 		}
 
 	case initMsg:
@@ -767,6 +791,9 @@ func (m *Model) updateSection(id int, sType string, msg tea.Msg) (cmd tea.Cmd) {
 	case issuessection.SectionType:
 		updatedSection, cmd = m.issues[id].Update(msg)
 		m.issues[id] = updatedSection
+	case repositoriessection.SectionType:
+		updatedSection, cmd = m.repositories[id].Update(msg)
+		m.repositories[id] = updatedSection
 	}
 
 	return cmd
@@ -836,6 +863,10 @@ func (m *Model) fetchAllViewSections() ([]section.Section, tea.Cmd) {
 		s, prcmds := prssection.FetchAllSections(m.ctx, m.prs)
 		cmds = append(cmds, prcmds)
 		return s, tea.Batch(cmds...)
+	case config.RepositoriesView:
+		s, repoCmds := repositoriessection.FetchAllSections(m.ctx)
+		cmds = append(cmds, repoCmds)
+		return s, tea.Batch(cmds...)
 	default:
 		s, issuecmds := issuessection.FetchAllSections(m.ctx)
 		cmds = append(cmds, issuecmds)
@@ -849,6 +880,8 @@ func (m *Model) getCurrentViewSections() []section.Section {
 		return []section.Section{m.repo}
 	case config.PRsView:
 		return m.prs
+	case config.RepositoriesView:
+		return m.repositories
 	default:
 		return m.issues
 	}
@@ -888,6 +921,22 @@ func (m *Model) setCurrentViewSections(newSections []section.Section) {
 		}
 		m.prs = append(s, newSections...)
 		newSections = m.prs
+	} else if m.ctx.View == config.RepositoriesView {
+		if missingSearchSection {
+			search := repositoriessection.NewModel(
+				0,
+				m.ctx,
+				config.RepositoriesSectionConfig{
+					Title:   "",
+					Filters: "org:healingpaper-solution",
+				},
+				time.Now(),
+				time.Now(),
+			)
+			s = append(s, &search)
+		}
+		m.repositories = append(s, newSections...)
+		newSections = m.repositories
 	} else {
 		if missingSearchSection {
 			search := issuessection.NewModel(
@@ -917,15 +966,17 @@ func (m *Model) switchSelectedView() config.ViewType {
 		case m.ctx.View == config.RepoView:
 			return config.PRsView
 		case m.ctx.View == config.PRsView:
-			return config.IssuesView
-		case m.ctx.View == config.IssuesView:
+			return config.RepositoriesView
+		case m.ctx.View == config.RepositoriesView:
 			return config.RepoView
 		}
 	}
 
 	switch true {
 	case m.ctx.View == config.PRsView:
-		return config.IssuesView
+		return config.RepositoriesView
+	case m.ctx.View == config.RepositoriesView:
+		return config.PRsView
 	default:
 		return config.PRsView
 	}

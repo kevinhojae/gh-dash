@@ -128,7 +128,7 @@ func (m *Model) UpdateTabTitles() {
 		title := cfg.Title
 		// handle search section
 		if i == 0 {
-			// noop
+			title = ""
 		} else if tab.section.GetIsLoading() {
 			title = fmt.Sprintf("%s %s", title, m.sectionTabs[i].spinner.View())
 		} else if m.ctx.Config.Theme.Ui.SectionsShowCount {

@@ -112,8 +112,6 @@ func (m *Model) renderViewButton(view config.ViewType) string {
 	v := " PRs"
 	if view == config.IssuesView {
 		v = " Issues"
-	} else if view == config.RepositoriesView {
-		v = " Repos"
 	}
 
 	if m.ctx.View == view {
@@ -141,7 +139,7 @@ func (m *Model) renderViewSwitcher(ctx *context.ProgramContext) string {
 		lipgloss.Top,
 		ctx.Styles.ViewSwitcher.ViewsSeparator.PaddingLeft(1).Render(m.renderViewButton(config.PRsView)),
 		ctx.Styles.ViewSwitcher.ViewsSeparator.Render(" │ "),
-		m.renderViewButton(config.RepositoriesView),
+		m.renderViewButton(config.IssuesView),
 		lipgloss.NewStyle().Background(ctx.Styles.Common.FooterStyle.GetBackground()).Foreground(
 			ctx.Styles.ViewSwitcher.ViewsSeparator.GetBackground()).Render(" "),
 		repo,

@@ -56,6 +56,9 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	case config.RepoView:
 		additionalKeys = BranchFullHelp()
 		customKeys = append(customKeys, CustomBranchBindings...)
+	case config.RepositoriesView:
+		additionalKeys = RepositoryFullHelp()
+		customKeys = append(customKeys, CustomRepositoryBindings...)
 	default:
 		additionalKeys = IssueFullHelp()
 		customKeys = append(customKeys, CustomIssueBindings...)
@@ -177,7 +180,7 @@ var Keys = &KeyMap{
 }
 
 // Rebind will update our saved keybindings from configuration values.
-func Rebind(universal, issueKeys, prKeys, branchKeys []config.Keybinding) error {
+func Rebind(universal, issueKeys, prKeys, branchKeys, repositoryKeys []config.Keybinding) error {
 	err := rebindUniversal(universal)
 	if err != nil {
 		return err
@@ -193,15 +196,21 @@ func Rebind(universal, issueKeys, prKeys, branchKeys []config.Keybinding) error 
 		return err
 	}
 
+	err = rebindRepositoryKeys(repositoryKeys)
+	if err != nil {
+		return err
+	}
+
 	return rebindIssueKeys(issueKeys)
 }
 
 // CustomBindings stores custom keybindings that don't have built-in equivalents
 var (
-	CustomUniversalBindings []key.Binding
-	CustomPRBindings        []key.Binding
-	CustomIssueBindings     []key.Binding
-	CustomBranchBindings    []key.Binding
+	CustomUniversalBindings   []key.Binding
+	CustomPRBindings          []key.Binding
+	CustomIssueBindings       []key.Binding
+	CustomBranchBindings      []key.Binding
+	CustomRepositoryBindings  []key.Binding
 )
 
 func rebindUniversal(universal []config.Keybinding) error {
