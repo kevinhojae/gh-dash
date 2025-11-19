@@ -2,12 +2,15 @@ package reposection
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
 	gitm "github.com/aymanbagabas/git-module"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/log"
+	"github.com/cli/go-gh/v2/pkg/browser"
 
 	"github.com/dlvhdr/gh-dash/v4/internal/data"
 	"github.com/dlvhdr/gh-dash/v4/internal/git"
@@ -367,9 +370,37 @@ func (m *Model) onRefreshPrsMsg() []tea.Cmd {
 }
 
 func (m *Model) OpenGithub() tea.Cmd {
-	row := m.CurrRow()
-	b := m.getFilteredBranches()[row]
-	return tasks.OpenBranchPR(m.Ctx, tasks.SectionIdentifier{Id: 0, Type: SectionType}, b.Data.Name)
+	// In repo view, when pressing "open in GitHub", prefer opening the
+	// repository's Pull Requests page rather than a specific PR tied to
+	// the current branch. This matches the user's mental model of
+	// "show me PRs for this repo" when they're looking at branches.
+	rawRepoURL := m.Ctx.RepoUrl
+	if rawRepoURL == "" {
+		// Fallback to previous behaviour: try to open a PR for the current branch.
+		row := m.CurrRow()
+		b := m.getFilteredBranches()[row]
+		return tasks.OpenBranchPR(m.Ctx, tasks.SectionIdentifier{Id: 0, Type: SectionType}, b.Data.Name)
+	}
+
+	// Normalise git remote URL to a https://github.com/{owner}/{repo} form
+	repoPath := rawRepoURL
+	if strings.HasPrefix(rawRepoURL, "git@github.com:") {
+		repoPath = strings.TrimPrefix(rawRepoURL, "git@github.com:")
+	} else if strings.HasPrefix(rawRepoURL, "ssh://git@github.com/") {
+		repoPath = strings.TrimPrefix(rawRepoURL, "ssh://git@github.com/")
+	} else if strings.HasPrefix(rawRepoURL, "https://github.com/") {
+		repoPath = strings.TrimPrefix(rawRepoURL, "https://github.com/")
+	}
+	repoPath = strings.TrimSuffix(repoPath, ".git")
+	webURL := fmt.Sprintf("https://github.com/%s/pulls", repoPath)
+
+	return func() tea.Msg {
+		b := browser.New("", os.Stdout, os.Stdin)
+		if err := b.Browse(webURL); err != nil {
+			return constants.ErrMsg{Err: err}
+		}
+		return nil
+	}
 }
 
 func (m *Model) deleteBranch() tea.Cmd {

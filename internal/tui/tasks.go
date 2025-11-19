@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cli/go-gh/v2/pkg/browser"
 
+	"github.com/dlvhdr/gh-dash/v4/internal/config"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/constants"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/context"
 )
@@ -33,7 +35,16 @@ func (m *Model) openBrowser() tea.Cmd {
 				Err:    errors.New("current selection doesn't have a URL"),
 			}
 		}
-		err := b.Browse(currRow.GetUrl())
+		url := currRow.GetUrl()
+
+		// In repositories view we want to open the Pull Requests page for the
+		// selected repository rather than the repository root.
+		if m.ctx.View == config.RepositoriesView && url != "" {
+			url = strings.TrimRight(url, "/")
+			url = fmt.Sprintf("%s/pulls", url)
+		}
+
+		err := b.Browse(url)
 		return constants.TaskFinishedMsg{TaskId: taskId, Err: err}
 	}
 	return tea.Batch(startCmd, openCmd)
