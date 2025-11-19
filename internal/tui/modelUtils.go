@@ -100,6 +100,19 @@ func (m *Model) executeKeybinding(key string) tea.Cmd {
 				return m.runCustomPRCommand(keybinding.Command, data)
 			}
 		}
+	case config.RepositoriesView:
+		for _, keybinding := range m.ctx.Config.Keybindings.Repositories {
+			if keybinding.Key != key || keybinding.Command == "" {
+				continue
+			}
+
+			log.Debug("executing keybind", "key", keybinding.Key, "command", keybinding.Command)
+
+			switch data := currRowData.(type) {
+			case *data.RepositoryData:
+				return m.runCustomRepositoryCommand(keybinding.Command, data)
+			}
+		}
 	case config.RepoView:
 		for _, keybinding := range m.ctx.Config.Keybindings.Branches {
 			if keybinding.Key != key || keybinding.Command == "" {
@@ -141,6 +154,12 @@ func (m *Model) runCustomCommand(commandTemplate string, contextData *map[string
 		}
 	}
 
+	// Ensure RepoPath key is always present so templates that reference it
+	// don't fail when there is no mapping in RepoPaths.
+	if _, exists := input["RepoPath"]; !exists {
+		input["RepoPath"] = ""
+	}
+
 	cmd, err := template.New("keybinding_command").Parse(commandTemplate)
 	if err != nil {
 		log.Fatal("Failed parse keybinding template", "error", err)
@@ -174,6 +193,17 @@ func (m *Model) runCustomIssueCommand(commandTemplate string, issueData *data.Is
 		&map[string]any{
 			"RepoName":    issueData.GetRepoNameWithOwner(),
 			"IssueNumber": issueData.Number,
+		},
+	)
+}
+
+func (m *Model) runCustomRepositoryCommand(commandTemplate string, repoData *data.RepositoryData) tea.Cmd {
+	if repoData == nil {
+		return m.runCustomCommand(commandTemplate, nil)
+	}
+	return m.runCustomCommand(commandTemplate,
+		&map[string]any{
+			"RepoName": repoData.GetRepoNameWithOwner(),
 		},
 	)
 }

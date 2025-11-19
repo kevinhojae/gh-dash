@@ -1005,6 +1005,14 @@ func (m *Model) isUserDefinedKeybinding(msg tea.KeyMsg) bool {
 		}
 	}
 
+	if m.ctx.View == config.RepositoriesView {
+		for _, keybinding := range m.ctx.Config.Keybindings.Repositories {
+			if keybinding.Builtin == "" && keybinding.Key == msg.String() {
+				return true
+			}
+		}
+	}
+
 	if m.ctx.View == config.RepoView {
 		for _, keybinding := range m.ctx.Config.Keybindings.Branches {
 			if keybinding.Builtin == "" && keybinding.Key == msg.String() {
